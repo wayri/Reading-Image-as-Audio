@@ -1,0 +1,166 @@
+Reading Image as Audio
+<This file is written as MATLAB livescript>
+This file does some basic image processing and data scaling. 
+The script towards the end reads image as audio data!. Why? well why not?. This is just a little experiment
+
+Load Image 
+image = imread('Rainflower.jpg');
+image = imcrop(image, [10 200 300 500]);    %This is done to reduce computation time otherwise it is not necessary or required
+
+imshow(image);
+Extract the R G B layers from the image and obtain a grayscale alternate form
+%Color Seperation
+
+%Red
+
+tim = image; 
+tim(:,:,2) = 0;
+tim(:,:,3) = 0;
+im_r = tim;
+
+%Green
+tim = image; 
+tim(:,:,1) = 0;
+tim(:,:,3) = 0;
+im_g = tim;
+
+%Blue
+tim = image; 
+tim(:,:,1) = 0;
+tim(:,:,2) = 0;
+im_b = tim;
+
+im_gray = rgb2gray(image);
+
+subplot(2,2,1)
+imshow(im_r)
+title('Red')
+subplot(2,2,2)
+imshow(im_g)
+title('Green')
+subplot(2,2,3)
+imshow(im_b)
+title('Blue')
+subplot(2,2,4)
+imshow(im_gray)
+title('Gray')
+subplot
+Testing filtering
+%% imtool(image)
+tim = im_gray;
+tim = histeq(tim);
+imshow(tim);
+tim = histeq(tim);
+edge(tim)
+Extracting the image rows by row yields a vector of rows
+size(im_gray)
+%looping over the image with row buffer
+%X = zeros(1,size(im_gray,2));
+%whos X
+X = im_gray(1,:,:);
+whos X
+To obtain a sensible image on the audio end with low reconstruction capability the frequency of the given sample row needs to be decreased.
+This can be achieved by oversampling or interpolation
+-----------> The above concept isnt implemented yet
+
+
+
+Generation of a single row-audio transform vector
+Audio data must be real and a floating point number.
+The data in 'X' can be seen below
+X
+isfloat(X)
+Thus it first needs to be scaled, since X is in uint8 format thus the maximum attainable value is 255 so a scale factor of 100 is a viable first guess
+Thus we construct another vector X_snd as follows
+
+X_fl = cast(X,'single')
+X_snd = X_fl/100
+
+After this the sound can be generated
+sound(X_snd,4096)
+However, as can be heard from the sound wave the data might have been lost.
+The following is the analysis for the same
+L = size(X,2);
+
+X_fft = fft(X);
+X_snd_fft = fft(X_snd);
+X_err = X_fft - X_snd_fft;
+
+whos X_fft X_snd_fft X_err
+Fs = 4096;
+f = Fs*(0:(L/2))/L;
+
+
+P2 = abs(X_fft/L);
+P1 = P2(1:L/2+1);
+P1(2:end-1) = 2*P1(2:end-1);
+plot(f,P1) 
+xlabel('f (Hz)')
+ylabel('|P1(f)|')
+title('Input Signal / Row vector')
+
+
+
+P2 = abs(X_snd_fft/L);
+P1 = P2(1:L/2+1);
+P1(2:end-1) = 2*P1(2:end-1);
+plot(f,P1) 
+xlabel('f (Hz)')
+ylabel('|P1(f)|')
+title('Output Signal / Image-Audio Transformation')
+
+
+
+plot(abs(X_err))
+title('Error / X_fft - X_snd_fft')
+See Documentation for Plotting 'fft' help
+-------------------------------6-10-2019-------------------------------------------------
+X_snd_fft = fft(X_snd);
+L = size(X,2);
+P2 = abs(X_snd_fft/L);
+P1 = P2(1:L/2+1);
+P1(2:end-1) = 2*P1(2:end-1);
+plot(f,P1) 
+title('Single-Sided Amplitude Spectrum of S(t)')
+xlabel('f (Hz)')
+ylabel('|P1(f)|')
+
+
+FFT Direct - Analysis
+The technique of directly applying FFT to the discreet data signal does not yield any apparent information however the fourier coefficients retain the image in its entirety.
+The goal of this work is to obtain a picture as-is using a acoustic spectrogram.
+
+The spectrogram functions as a fourier analyzer. However, it uses a vertical frequency scale with the time axis being the independent axis.
+The amplitude or the absolute value of fourier coefficients is depicted using color gradation or simply the instantaneous energy of the signal.
+
+The color mapping can be attained by using the fourier coeffcients mapped to a colormap.
+The Following Contains the analysis and documentaion of the same.
+! - See Also C:\Users\YAWAR\Documents\000003Notes\Research\IA-Transform\
+
+
+The above analysis used direct analog counterpart of pixel values and used them as sounf. However the goal is to use the scan lines of a spectrogram as counterparts to row vectors
+Thus the following analysis is implemented.
+
+Modulation techniques and encoding of images
+The following techniques use predefined spectrogram lines a rows of a image. These are used as the reference for processing.
+Each image row is converted into audio by using its counterpart frequency offset in a spectrogram as base. This is done by using the data to modulate the amplitude of the carrier wave for the given row.
+Operating on 'X_snd' defined above ;
+X_snd
+
+%Row carrier offset frequency = f_R
+f_R = (X_snd + 0.01 * ones(size(X_snd))) 
+This procedure ensures that the zeros in data do not cause the spectral line to collapse completely however, it contributes a faint drag line in the spectral frequency.
+f_R_sin = f_R .* sin(5000) .* sin(10000)
+
+plot(f_R_sin)
+Uncomment the following line to listen to the converted image piece
+%sound(f_R_sin, 22000)
+rescaling back;. to check integrity of audio
+plot(X)
+------------------08-10-2019---------------------------------------------------------------------------------------
+                                    !!      - -      implement dilate and use the f_R_sin to modulate amplitude of a carrier wave.
+    
+
+
+
+
